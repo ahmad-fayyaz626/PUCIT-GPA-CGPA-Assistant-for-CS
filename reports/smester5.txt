@@ -1,0 +1,17 @@
+Semester 5 GPA Calculation Report
+
+Courses and Credit Hours:
+- CC-313 (Analysis of Algorithms): 3.0 credits, Mark 78, Grade Point 3.3
+- CC-310 (Artificial Intelligence): 3.0 credits, Mark 85, Grade Point 4.0
+- DC-320 (Theory of Automata and Formal Languages): 3.0 credits, Mark 64, Grade Point 2.3
+- DC-321 (Human Computer Interaction): 3.0 credits, Mark 72, Grade Point 3.0
+- DC-322 (Computer Architecture): 3.0 credits, Mark 80, Grade Point 3.7
+- EC-330 (Web Technologies / Elective): 3.0 credits, Mark 75, Grade Point 3.3
+- HQ-005 (Quran Translation V): 0.5 credits, Mark 90, Grade Point 4.0
+
+Total Credit Hours (excluding pass/fail courses): 18.5
+Weighted Grade Points Sum: 60.80
+Semester GPA = Weighted Sum / Total Credits = 60.80 / 18.5 = 3.2865
+Rounded GPA: 3.29
+
+Result: Your Semester 5 GPA is **3.29**.

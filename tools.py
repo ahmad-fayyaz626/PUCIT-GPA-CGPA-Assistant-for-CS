@@ -1,6 +1,8 @@
 import courses
 from courses import COURSES
 from langchain.tools import tool
+import os
+
 
 # Invalid input returns a plain error string — "Error: semester must be between 1 and 8" — rather than raising an exception.#
 @tool
@@ -106,10 +108,10 @@ def required_gpa_for_target(
 # tool for get semester courses
 @tool
 def get_semester_courses(semester: int) -> str:
-    "Use this tool whenever the user asks for the courses/course outline of a semester. It retrieves the official course list and credit hours for semesters 1–8 from the provided curriculum data. Do not ask the user to provide the course list."
+    "This function takes the semester number and will return the"
+    "courses along their credit hours in str"
     if semester not in courses.COURSES:
         return "Error: Invalid semester number.Please enter semester between 1-8"
-
     course_list = COURSES[semester]
     result = ""
 
@@ -134,12 +136,21 @@ def get_remaining_credit_hours(current_semester: int) -> float:
 # save summary to a file
 @tool
 def save_report(filename: str, content: str) -> str:
-    """This function will save a summary and return a confirmation upon user request.The user will
-    explicitly provide the filename and the content to be saved in the file."""
+    """Use this tool when the user explicitly asks to save a report.
+    Saves the provided report content as a text file inside the reports folder.
+    """
     if not filename.endswith(".txt"):
         filename += ".txt"
+
     if not content:
-        return "Error:Content cannot be empty."
-    with open(filename, "w") as file:
+        return "Error: Content cannot be empty."
+
+    reports_dir = "reports"
+    os.makedirs(reports_dir, exist_ok=True)
+
+    filepath = os.path.join(reports_dir, filename)
+
+    with open(filepath, "w", encoding="utf-8") as file:
         file.write(content)
-    return f"Report saved to {filename}"
+
+    return f"Report saved to {filepath}"

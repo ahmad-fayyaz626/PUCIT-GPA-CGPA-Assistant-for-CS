@@ -1,8 +1,9 @@
+import os
 import uuid
 from datetime import datetime
 
 import streamlit as st
-from langchain.messages import HumanMessage
+from langchain.messages import HumanMessage, ToolMessage
 
 from agent import agent
 
@@ -28,17 +29,8 @@ GRAD_CAP_SVG = """
 </svg>
 """
 
-PLUS_SVG = """<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:6px;">
-<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>"""
-
-CHAT_SVG = """<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-xmlns="http://www.w3.org/2000/svg" style="vertical-align:-2px;margin-right:8px;opacity:0.6;">
-<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
-stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
-
 # ─────────────────────────────────────────────────────────────
-# THEME — Claude-style: neutral grays, one quiet accent, tight spacing
+# THEME — neutral grays, tight spacing (Claude/ChatGPT-style)
 # ─────────────────────────────────────────────────────────────
 SIDEBAR_BG = "#FAFAF8"
 BORDER = "#E8E6E1"
@@ -46,7 +38,6 @@ TEXT_PRIMARY = "#1A1A1A"
 TEXT_MUTED = "#8A8A85"
 HOVER_BG = "#F0EFEB"
 ACTIVE_BG = "#ECECE7"
-ACCENT = "#1A1A1A"  # neutral, not a loud color — matches Claude's understated look
 
 st.markdown(
     f"""
@@ -71,7 +62,6 @@ st.markdown(
             padding: 0.25rem 0.4rem 1rem 0.4rem;
         }}
 
-        /* New Chat — quiet outline button, not a loud filled color */
         div[data-testid="stSidebar"] button[kind="secondary"] {{
             background-color: transparent;
             color: {TEXT_PRIMARY};
@@ -89,7 +79,6 @@ st.markdown(
             color: {TEXT_PRIMARY};
         }}
 
-        /* Active chat — filled but neutral, not bright */
         div[data-testid="stSidebar"] button[kind="primary"] {{
             background-color: {ACTIVE_BG} !important;
             color: {TEXT_PRIMARY} !important;
@@ -101,7 +90,6 @@ st.markdown(
             padding: 0.4rem 0.6rem;
         }}
 
-        /* Tight vertical rhythm between sidebar buttons */
         div[data-testid="stSidebar"] .stButton {{
             margin-bottom: 2px;
         }}
@@ -122,7 +110,6 @@ st.markdown(
             padding: 0.3rem 0.4rem;
         }}
 
-        /* Main header */
         .app-header {{
             display: flex;
             align-items: center;
@@ -190,7 +177,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    if st.button(f"New chat", key="new_chat_btn", use_container_width=True):
+    if st.button("New chat", key="new_chat_btn", use_container_width=True):
         create_new_chat()
         st.rerun()
 
@@ -273,5 +260,27 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             response = agent.invoke({"messages": active_chat["messages"]})
-        active_chat["messages"] = response["messages"]
-        st.write(response["messages"][-1].content)
+
+        new_messages = response["messages"]
+        active_chat["messages"] = new_messages
+
+        st.write(new_messages[-1].content)
+
+        # Check if save_report tool was called in this turn
+        for msg in new_messages:
+            if isinstance(msg, ToolMessage) and msg.content.startswith(
+                "Report saved to "
+            ):
+                saved_filename = msg.content.replace("Report saved to ", "").strip()
+
+                if os.path.exists(saved_filename):
+                    with open(saved_filename, "r", encoding="utf-8") as f:
+                        file_bytes = f.read()
+
+                    st.download_button(
+                        label=f"Download {saved_filename}",
+                        data=file_bytes,
+                        file_name=saved_filename,
+                        mime="text/plain",
+                        key=f"download_{saved_filename}_{len(new_messages)}",
+                    )
