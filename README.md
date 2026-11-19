@@ -1,18 +1,15 @@
 # PUCIT GPA & CGPA Assistant
 
-An Agentic AI conversational assistant for PUCIT BS(CS) students. The assistant can calculate semester GPA, project CGPA, determine the GPA required to reach a target CGPA, retrieve semester course outlines, and save reports. Its tools are served over **MCP (Model Context Protocol)**, so any MCP-compatible client can use them.
+> **Live MCP server:** https://pucit-gpa-cgpa-assistant-for-cs.onrender.com/mcp
 
-## Live MCP Server
+>**Github Link:** https://github.com/ahmad-fayyaz626/PUCIT-GPA-CGPA-Assistant-for-CS
 
-The tools are hosted as a remote MCP server (Streamable HTTP):
+> **How this repository is organized**
+>
+> - **Original assignment** (root files: `app.py`, `agent.py`, `tools.py`, `courses.py`): the GPA/CGPA agent with local tools and a Streamlit interface. This part is run with `streamlit run app.py`.
+> - **MCP extension** (the `server/` and `agent/` folders): the same GPA/CGPA tools served over **MCP (Model Context Protocol)**, and a separate agent that connects to them as an MCP client, with persistent per-user memory, streaming, and tool-failure handling.
 
-```text
-https://pucit-gpa-cgpa-assistant-for-cs.onrender.com/mcp
-```
-
-- Opening this URL in a browser shows `405 Method Not Allowed`. This is expected: browsers send GET requests, while MCP only accepts POST.
-- On a free hosting tier the server may sleep when idle, so the first request can take a while to respond.
-- Any MCP-compatible client or agent can connect to this URL and discover the tools through `tools/list`.
+An Agentic AI conversational assistant for PUCIT BS(CS) students. The assistant can calculate semester GPA, project CGPA, determine the GPA required to reach a target CGPA, retrieve semester course outlines, and save reports.
 
 ## Features
 
@@ -24,24 +21,34 @@ https://pucit-gpa-cgpa-assistant-for-cs.onrender.com/mcp
 - Retrieve course outlines and credit hours for semesters 1–8.
 - Save meaningful GPA/CGPA results as reports when explicitly requested.
 - Conversational interaction with missing-information handling.
-- Tools exposed through an MCP server, consumed by the agent as an MCP client.
-- Persistent chat memory: every user has their own saved conversation (thread), kept across restarts.
+- Streamlit web interface (original assignment).
+
+Added by the MCP extension:
+
+- Tools exposed through an MCP server, hosted online and reusable by any MCP-compatible client.
+- An MCP client agent that discovers and calls those tools.
+- Persistent chat memory: every user has their own saved conversation (thread) that survives restarts.
 - Streaming responses with live tool-call visibility.
-- Graceful handling of an unreachable MCP server (the model is told the tool failed instead of the chat crashing).
-- Streamlit web interface for interacting with the agent.
+- Graceful handling of an unreachable MCP server.
 
 ## Project Structure
 
 ```text
-AI Assignment/
+PUCIT-GPA-CGPA-Assistant-for-CS/
 │
-├── app.py          # Streamlit interface
-├── agent.py        # MCP client + agent + persistent memory + streaming chat loop
-├── tools.py        # GPA/CGPA tools, exposed through the MCP server
-├── server.py       # MCP server entry point
-├── llm.py          # LLM configuration
-├── chats.db        # SQLite chat memory (created automatically, not committed)
-├── .env.example
+├── app.py             # Streamlit interface (original assignment)
+├── agent.py           # Agent with local tools (original assignment)
+├── tools.py           # GPA/CGPA tools (original assignment)
+├── courses.py         # Semester course outlines and credit hours
+├── llm.py             # LLM configuration
+│
+├── server/            # MCP extension: MCP server exposing the tools
+├── agent/             # MCP extension: MCP client agent (memory, streaming)
+│
+├── config/            # System prompt
+├── reports/           # Saved reports
+├── requirements.txt
+├── .env               # Local secrets (not committed)
 ├── .gitignore
 └── README.md
 ```
@@ -49,7 +56,7 @@ AI Assignment/
 ## Technologies Used
 
 - Python
-- LangChain (`langchain.mcp.MCPAdapter`, `create_agent`)
+- LangChain (`create_agent`, `langchain.mcp.MCPAdapter`)
 - FastMCP (MCP server)
 - LangGraph SQLite checkpointer (`AsyncSqliteSaver`)
 - Streamlit
@@ -58,12 +65,24 @@ AI Assignment/
 
 ## Agent Architecture
 
-The project follows a tool-based agent architecture, with the tools living behind an MCP server:
+### Original assignment
 
 ```text
 User
   ↓
-Streamlit Interface / Terminal Chat
+Streamlit Interface
+  ↓
+LangChain Agent
+  ↓
+LLM
+  ↓
+Local Tools
+```
+
+### MCP extension
+
+```text
+User (terminal chat)
   ↓
 Host: LangChain Agent + LLM
   ↓
@@ -80,6 +99,18 @@ MCP Server (hosted)
 ```
 
 The LLM is responsible for understanding the user's request and deciding which tool should be used. Numerical calculations are performed by the tools rather than by the language model. The MCP server never sees the LLM; it only answers the client's tool calls.
+
+## Live MCP Server
+
+The tools are hosted as a remote MCP server (Streamable HTTP):
+
+```text
+https://pucit-gpa-cgpa-assistant-for-cs.onrender.com/mcp
+```
+
+- Opening this URL in a browser shows `405 Method Not Allowed`. This is expected: browsers send GET requests, while MCP only accepts POST.
+- On a free hosting tier the server may sleep when idle, so the first request can take a while to respond.
+- Any MCP-compatible client or agent can connect to this URL and discover the tools through `tools/list`.
 
 ## Grading Scheme
 
@@ -104,7 +135,7 @@ MD-001 and MD-002 are treated as non-credit pass/fail courses and are excluded f
 
 ```bash
 git clone <repository-url>
-cd AI\ Assignment
+cd PUCIT-GPA-CGPA-Assistant-for-CS
 ```
 
 ### 2. Create and activate a virtual environment
@@ -117,8 +148,10 @@ python -m venv .venv
 ### 3. Install dependencies
 
 ```powershell
-pip install -U "langchain[mcp]" langchain-groq langgraph-checkpoint-sqlite aiosqlite streamlit python-dotenv
+pip install -r requirements.txt
 ```
+
+The MCP extension additionally needs `langchain[mcp]`, `langgraph-checkpoint-sqlite` and `aiosqlite`.
 
 ### 4. Configure environment variables
 
@@ -136,24 +169,30 @@ For local development, run the MCP server yourself and point `MCP_URL` to it:
 MCP_URL=http://127.0.0.1:8000/mcp
 ```
 
-If `MCP_URL` is not set, the agent defaults to `http://127.0.0.1:8000/mcp`.
-
-Do not commit the `.env` file to GitHub. A `.env.example` file is included as a template.
+If `MCP_URL` is not set, the MCP agent defaults to `http://127.0.0.1:8000/mcp`. Do not commit the `.env` file to GitHub.
 
 ## Running the Application
 
-### Terminal chat (agent.py)
-
-If you use the local server, start it first in a separate terminal:
+### Original assignment (Streamlit)
 
 ```powershell
-python server.py
+streamlit run app.py
 ```
 
-Then start the chat:
+Streamlit will provide a local URL where the GPA & CGPA Assistant can be used.
+
+### MCP extension (terminal chat)
+
+If you use a local server, start it first in a separate terminal (from the project root):
 
 ```powershell
-python agent.py
+python server/server.py
+```
+
+Then start the MCP agent:
+
+```powershell
+python agent/agent.py
 ```
 
 The chat lists the saved conversations, asks who is chatting (the name becomes the thread id), and supports these commands:
@@ -166,14 +205,6 @@ The chat lists the saved conversations, asks who is chatting (the name becomes t
 | `/exit`    | Quit                                           |
 
 Replies stream in as they are generated, and each tool call and its result are shown while the agent works.
-
-### Streamlit interface
-
-```powershell
-streamlit run app.py
-```
-
-Streamlit will provide a local URL where the GPA & CGPA Assistant can be used.
 
 ## Example Queries
 
@@ -192,9 +223,11 @@ What grade point is 78 marks?
 
 ## Conversation State
 
-Conversation memory is handled by a LangGraph checkpointer (`AsyncSqliteSaver`) backed by a local SQLite file (`chats.db`). After every step of the agent, the full state is saved under a thread id, which identifies whose conversation it is. On each turn only the new message is sent; the saved history for that thread is loaded and the new message is appended to it. Because the history is stored on disk, chats survive closing the program, and different users never see each other's messages.
+**Original assignment:** the agent itself is stateless between invocations. The application carries the conversation history and provides it to the agent again when a new message is processed. Streamlit's `st.session_state` maintains the current conversation during the application session.
 
-## Reliability
+**MCP extension:** conversation memory is handled by a LangGraph checkpointer (`AsyncSqliteSaver`) backed by a local SQLite file (`chats.db`, created automatically). After every step of the agent, the full state is saved under a thread id, which identifies whose conversation it is. On each turn only the new message is sent; the saved history for that thread is loaded and the new message is appended to it. Chats therefore survive closing the program, and different users never see each other's messages.
+
+## Reliability (MCP extension)
 
 If the MCP server is unreachable while a tool is being called, the failure is caught and returned to the model as a tool error message. The model then tells the user that the tools are unavailable instead of the chat crashing, and no unanswered tool call is left in the saved history (which would make most model APIs reject the conversation).
 
@@ -207,7 +240,8 @@ If the MCP server is unreachable while a tool is being called, the failure is ca
 - Required GPAs above 4.0 are treated as unreachable for that calculation horizon.
 - The calculation horizon can be extended across subsequent semesters when required.
 - Reports are saved only after the user explicitly requests them.
+- Requests outside GPA/CGPA topics (such as programming help) are politely declined.
 
 ## Assignment Scope
 
-The project implements the required GPA/CGPA agent, an MCP-based tool layer, persistent per-user memory, streaming output, and a Streamlit interface. Repeated-course improvements, relative grading, incomplete/withdrawal cases, and other features outside the specified assignment requirements are not included.
+The original assignment implements the required GPA/CGPA agent and Streamlit interface. The MCP extension adds a hosted MCP tool server and a separate MCP client agent with persistent per-user memory and streaming. Repeated-course improvements, relative grading, incomplete/withdrawal cases, and other features outside the specified requirements are not included.
