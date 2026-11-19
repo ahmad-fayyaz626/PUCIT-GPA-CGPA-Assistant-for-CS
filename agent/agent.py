@@ -8,26 +8,41 @@ from langchain.agents import create_agent
 from langchain.mcp import MCPAdapter
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langchain.agents.middleware import wrap_tool_call
+from langchain_core.messages import ToolMessage
 
-sys.path.append(str(Path(__file__).parent.parent))
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 from llm import llm
+from config.system_prompt import system_prompt as SYSTEM_PROMPT
 
 load_dotenv()
 
 mcp_url = os.getenv("MCP_URL", "http://127.0.0.1:8000/mcp")
-DB_PATH = str(Path(__file__).parent / "chats.db") 
+DB_PATH = str(Path(__file__).parent / "chats.db")
 
-SYSTEM_PROMPT = (
-    "You are a GPA and CGPA assistant for PUCIT BS(CS) students. You can calculate "
-    "semester GPA, projected CGPA, and required GPA for a target CGPA. You can also "
-    "provide information about courses and credit hours. Please ask the user for any "
-    "missing information before performing calculations."
-)
+
+@wrap_tool_call
+async def handle_tool_errors(request, handler):
+    try:
+        return await handler(request)
+    except Exception as e:
+        return ToolMessage(
+            content=f"Tool failed: MCP server unreachable ({type(e).__name__}). "
+            "Tell the user the tools are unavailable right now. Do not retry.",
+            tool_call_id=request.tool_call["id"],
+            status="error",
+        )
 
 
 def build_agent(tools, memory):
     return create_agent(
-        llm, tools=tools, system_prompt=SYSTEM_PROMPT, checkpointer=memory
+        llm,
+        tools=tools,
+        system_prompt=SYSTEM_PROMPT,
+        checkpointer=memory,
+        middleware=[handle_tool_errors],
     )
 
 
@@ -55,7 +70,7 @@ async def stream_turn(agent, text, config):
     async for chunk in agent.astream(
         inputs, config, stream_mode=["updates", "messages"], version="v2"
     ):
-        if chunk["type"] == "messages": 
+        if chunk["type"] == "messages":
             token, metadata = chunk["data"]
             if metadata["langgraph_node"] == "model" and token.text:
                 if not typing:
@@ -63,7 +78,7 @@ async def stream_turn(agent, text, config):
                     typing = True
                 print(token.text, end="", flush=True)
 
-        elif chunk["type"] == "updates": 
+        elif chunk["type"] == "updates":
             for node, update in chunk["data"].items():
                 if not update or "messages" not in update:
                     continue
