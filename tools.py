@@ -45,7 +45,7 @@ def marks_to_grade_points(marks: int) -> float:
 @tool
 def calculate_samester_gpa(
     grade_points: list[float], credit_hours: list[float]
-) -> float:
+) -> float | str:
     """This function takes in a list of grade points and list of credit hours and returns the samester gpa based on the following formula"""
     if not grade_points or not credit_hours:
         return "Grade points and credit hours lists cannot be empty."
@@ -154,3 +154,14 @@ def save_report(filename: str, content: str) -> str:
         file.write(content)
 
     return f"Report saved to {filepath}"
+
+
+tools = [
+    get_remaining_credit_hours,
+    save_report,
+    get_semester_courses,
+    required_gpa_for_target,
+    calculate_new_cgpa,
+    calculate_samester_gpa,
+    marks_to_grade_points,
+]
